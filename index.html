@@ -187,6 +187,11 @@ img{max-width:100%;display:block}
 .commands__app{font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:var(--r-pill);border:1px solid var(--border-inv);color:var(--text-inv-muted);letter-spacing:0.02em}
 @media(max-width:700px){.commands__item{grid-template-columns:auto 1fr}.commands__apps{grid-column:1/-1;justify-content:flex-start}}
 .builder{padding:96px 0}
+.sector-select-wrap{margin-bottom:20px}
+.sector-select-label{font-family:var(--mono);font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-faint);margin-bottom:8px}
+.sector-select-hint{font-size:13px;color:var(--text-faint);margin-top:6px;line-height:1.4}
+.sector-select{width:100%;border:1px solid var(--border-strong);border-radius:var(--r-control);padding:12px 16px;font-family:var(--sans);font-size:16px;color:var(--ink);background:var(--cream);outline:none;cursor:pointer;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%230C0C0C' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;padding-right:40px}
+.sector-select:focus{border-color:var(--ink)}
 .builder__head{display:flex;flex-direction:column;gap:16px;margin-bottom:48px;max-width:60ch}
 .builder__panel{border:1px solid var(--border);border-radius:var(--r-card);overflow:hidden}
 .builder__input-area{padding:32px 28px;border-bottom:1px solid var(--border)}
@@ -411,7 +416,6 @@ img{max-width:100%;display:block}
 <div class="filterbar">
 <div class="fselect" id="roleSelect"></div>
 <div class="fselect" id="tierSelect"></div>
-<div class="fselect" id="sectorSelect"></div>
 <div class="fselect" id="connectorSelect"></div>
 <div class="fselect__mcp-wrap">
 <input type="text" id="mcpInput" class="fselect__mcp-input" placeholder="Custom MCP server..." />
@@ -458,6 +462,7 @@ img{max-width:100%;display:block}
 <textarea class="builder__input" id="builderInput" placeholder="e.g. I want to summarize my meeting recording, extract action items, create Linear issues, and post a summary in Slack..."></textarea>
 <div class="builder__chips-area"><div class="builder__chips-label">Quick start. Pick a starting point</div><div class="builder__chips" id="sourceChips"></div></div>
 <div class="builder__chips-area"><div class="builder__chips-label">What you want as an outcome</div><div class="builder__chips" id="outcomeChips"></div></div>
+<div class="builder__chips-area" style="margin-top:20px" id="builderSectorArea"></div>
 <div class="builder__actions"><button class="btn btn--green" id="generateBtn">Generate workflow</button><span class="builder__hint">Or try an example below</span></div>
 <div class="builder__chips-area" style="margin-top:20px"><div class="builder__chips-label">Examples</div><div class="builder__chips" id="exampleChips"></div></div>
 </div>
@@ -1288,25 +1293,33 @@ function selectTier(val) {
   renderCards();
 }
 
-// ===== RENDER SECTOR DROPDOWN (single select) =====
-function renderSectorSelect() {
-  const el = document.getElementById('sectorSelect');
-  const current = activeFilters.sector;
-  var label = current === 'all' ? 'Sector' : current;
-  if (label.length > 20) label = label.substring(0, 18) + '...';
-  el.innerHTML = '<button class="fselect__btn' + (current !== 'all' ? ' fselect__btn--active' : '') + '" onclick="event.stopPropagation();togglePanel(\'sectorSelect\')">' +
-    '<span class="fselect__btn-label">Sector</span>' + label + '<span class="fselect__arrow">&#9662;</span></button>' +
-    '<div class="fselect__panel" style="min-width:240px">' +
-    '<div class="fselect__option' + (current === 'all' ? ' fselect__option--single-selected' : '') + '" onclick="selectSector(\'all\')">All sectors</div>' +
-    sectorList.map(function(s) { return '<div class="fselect__option' + (current === s ? ' fselect__option--single-selected' : '') + '" onclick="selectSector(\'' + s.replace(/'/g, "\\'") + '\')">' + s + '</div>'; }).join('') +
+// ===== SECTOR SELECTOR (for modal and builder, not filter bar) =====
+function sectorSelectHtml(location) {
+  var opts = '<option value="all">No sector customization</option>' +
+    sectorList.map(function(s) { return '<option value="' + s + '"' + (activeFilters.sector === s ? ' selected' : '') + '>' + s + '</option>'; }).join('');
+  return '<div class="sector-select-wrap">' +
+    '<div class="sector-select-label">Customize this prompt for your industry</div>' +
+    '<select class="sector-select" onchange="selectSector(this.value)">' + opts + '</select>' +
+    '<p class="sector-select-hint">Selecting a sector adds industry-specific context to the prompt. It does not filter the workflow list.</p>' +
     '</div>';
 }
 
 function selectSector(val) {
   activeFilters.sector = val;
-  closeAllPanels();
-  renderSectorSelect();
-  renderCards();
+  // Update modal prompt if modal is open
+  if (currentWorkflow) autoUpdatePrompt();
+  // Update builder sector selector to stay in sync
+  var builderSelect = document.querySelector('#builderSectorArea select');
+  if (builderSelect) builderSelect.value = val;
+  // Update modal sector selector to stay in sync
+  var modalSelect = document.querySelector('.modal__body select.sector-select, #modalBody select.sector-select');
+  if (modalSelect) modalSelect.value = val;
+  // Regenerate builder output if visible
+  var output = document.getElementById('builderOutput');
+  if (output && output.classList.contains('builder__output--visible')) {
+    var input = document.getElementById('builderInput').value.trim();
+    if (input) generateWorkflow();
+  }
 }
 
 // ===== RENDER CONNECTOR DROPDOWN (multi select with search) =====
@@ -1529,11 +1542,7 @@ function renderModal() {
     '<div class="modal__apps">' + w.skills.map(function(s) { return '<span class="modal__app" style="border-color:var(--green);color:var(--green)" title="' + (skillsCatalog[s]||'') + '">' + s + '</span>'; }).join('') + '</div></div>'
     : '';
 
-  const sectorHtml = activeFilters.sector !== 'all' ?
-    '<div class="modal__section"><div class="modal__section-label">Sector context applied</div>' +
-    '<p style="font-size:14px;color:var(--ink)">' + activeFilters.sector + '</p>' +
-    '<p style="font-size:13px;color:var(--text-faint);margin-top:4px">The prompt includes ' + activeFilters.sector.toLowerCase() + '-specific categorization and filtering.</p></div>'
-    : '';
+  const sectorHtml = '';
 
   const mcpHtml = activeFilters.mcps.size > 0 ?
     '<div class="modal__section"><div class="modal__section-label">Custom MCP servers</div>' +
@@ -1563,6 +1572,8 @@ function renderModal() {
     '</div><button class="modal__add-step" onclick="addStep()">+ Add a step</button></div>' +
 
     '<div class="modal__section"><div class="modal__section-label">Outcome</div><div class="modal__outcome-box"><p class="modal__outcome-box-text">' + w.outcome + '</p></div></div>' +
+
+    sectorSelectHtml('modal') +
 
     '<div class="modal__section"><div class="modal__section-row">' +
     '<div class="modal__section-label" style="margin-bottom:0">The prompt. Editable. Copy into Fluso</div>' +
@@ -2006,11 +2017,7 @@ function generateWorkflow() {
   const output = document.getElementById('builderOutput');
   output.classList.add('builder__output--visible');
 
-  const sectorDisplayHtml = activeFilters.sector !== 'all' ?
-    '<div class="builder__connectors"><div class="builder__connectors-label">Sector context</div>' +
-    '<p style="font-size:14px;color:var(--ink)">' + activeFilters.sector + '</p>' +
-    '<p style="font-size:13px;color:var(--text-faint);margin-top:4px">The prompt includes ' + activeFilters.sector.toLowerCase() + '-specific categorization and filtering.</p></div>'
-    : '';
+  const sectorDisplayHtml = '';
 
   const mcpDisplayHtml = activeFilters.mcps.size > 0 ?
     '<div class="builder__connectors"><div class="builder__connectors-label">Custom MCP servers in your prompt</div>' +
@@ -2160,9 +2167,9 @@ document.getElementById('builderInput').addEventListener('keydown', function(e) 
 // ===== INIT =====
 renderRoleSelect();
 renderTierSelect();
-renderSectorSelect();
 renderConnectorSelect();
 renderMcpTags();
+document.getElementById('builderSectorArea').innerHTML = sectorSelectHtml('builder');
 renderCards();
 renderConnectors();
 renderBuilderChips();
