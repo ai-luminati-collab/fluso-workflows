@@ -207,7 +207,16 @@ img{max-width:100%;display:block}
 .builder__actions{margin-top:24px;display:flex;gap:12px;align-items:center}
 .builder__hint{font-size:14px;color:var(--text-faint)}
 .builder__output{padding:32px 28px;display:none}
-.builder__output--visible{display:block}
+.builder__output--visible{display:block;border-top:1px solid var(--border)}
+.builder__input-area--collapsed{padding:20px 28px}
+.builder__input-area--collapsed .builder__chips-area{display:none}
+.builder__input-area--collapsed #builderSectorArea{display:block}
+.builder__input-area--collapsed .builder__actions{margin-top:12px}
+.builder__input-area--collapsed .builder__hint{display:none}
+.builder__detected{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:24px;align-items:center}
+.builder__detected-label{font-family:var(--mono);font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:var(--text-faint);margin-right:4px}
+.builder__detected-item{font-size:13px;padding:4px 10px;border-radius:var(--r-pill);border:1px solid var(--border);color:var(--text-muted);background:var(--cream-dim)}
+.builder__detected-item--schedule{border-color:var(--green);color:var(--green)}
 .builder__output-head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:24px}
 .builder__output-title{font-size:22px;font-weight:500}
 .builder__output-meta{display:flex;gap:8px;flex-wrap:wrap}
@@ -1808,54 +1817,59 @@ const builderExamples = [
 
 const builderKeywords = {
   intents: {
-    summarize: ['summarize','summary','recap','digest','brief','overview','catch up','catch-up'],
-    draft: ['draft','write','compose','create','email','message','post','newsletter','caption'],
-    research: ['research','investigate','find out','analyze','study','explore','look into','compare'],
-    track: ['track','monitor','watch','follow up','follow-up','check on','flag','overdue','commitment'],
-    organize: ['organize','sort','triage','clean up','structure','map','plan','schedule'],
-    report: ['report','dashboard','metrics','analytics','performance','spend','engagement','ranking'],
-    review: ['review','audit','check','inspect','examine','scan'],
+    summarize: ['summarize','summary','recap','digest','brief','overview','catch up','catch-up','roundup','round-up','wrap up','wrap-up'],
+    draft: ['draft','write','compose','create','email','message','post','newsletter','caption','tweet','thread','copy','content'],
+    research: ['research','investigate','find out','analyze','analyse','study','explore','look into','compare','evaluate','assess','benchmark'],
+    track: ['track','monitor','watch','follow up','follow-up','check on','flag','overdue','commitment','mentions','mention','listening','brand','sentiment','alerts','notify','find all','find every','keep an eye','stay on top'],
+    organize: ['organize','sort','triage','clean up','cleanup','structure','map','plan','schedule','categorize','categorise','group','prioritize','prioritise'],
+    report: ['report','dashboard','metrics','analytics','performance','spend','engagement','ranking','kpi','roi','stats','statistics','numbers','breakdown'],
+    review: ['review','audit','check','inspect','examine','scan','proofread','qc','quality check','feedback'],
   },
   sources: {
-    meeting: ['meeting','call','transcript','audio','voice','recording'],
-    email: ['email','inbox','gmail','mail'],
-    slack: ['slack','channel','thread','message'],
-    document: ['document','doc','notion','page','notes','drive','slide','deck','memo'],
-    research: ['research','question','topic','article','url','website','competitor'],
-    social: ['social','instagram','facebook','linkedin','twitter','youtube','post','engagement'],
-    ads: ['ads','ad spend','google ads','campaign','cpc','ctr'],
-    spreadsheet: ['spreadsheet','sheet','csv','data','numbers','invoice','financial'],
-    code: ['code','github','pr','pull request','codebase','repo','bug','merge','deploy'],
-    crm: ['crm','attio','contact','prospect','customer','deal','pipeline'],
+    meeting: ['meeting','call','transcript','audio','voice','recording','zoom','google meet','teams','conference'],
+    email: ['email','inbox','gmail','mail','outlook'],
+    slack: ['slack','channel','thread','dm','direct message'],
+    document: ['document','doc','notion','page','notes','drive','slide','deck','memo','pdf','word','wiki'],
+    research: ['research','question','topic','article','url','website','competitor','web','internet','blog'],
+    social: ['social','instagram','facebook','linkedin','twitter','youtube','post','engagement','reddit','quora','tiktok','medium','substack','hacker news','product hunt','forums','forum','community','discussions','comments','mentions'],
+    ads: ['ads','ad spend','ad campaign','google ads','campaign','cpc','ctr','meta ads','facebook ads','linkedin ads','roas','ppc','paid'],
+    spreadsheet: ['spreadsheet','sheet','csv','data','numbers','invoice','financial','excel','airtable','revenue'],
+    code: ['code','github','pr','pull request','codebase','repo','bug','merge','deploy','commit','issue','repository'],
+    crm: ['crm','attio','contact','prospect','customer','deal','pipeline','salesforce','hubspot','lead'],
   },
   destinations: {
     Linear: ['linear','issue','task','ticket','sprint'],
-    Slack: ['slack','channel','message','post'],
-    Gmail: ['email','gmail','send','reply','outreach'],
-    'Google Drive': ['drive','doc','document','slides','deck','presentation'],
+    Slack: ['slack','channel','message','post','chat','dm','notify'],
+    Gmail: ['email','gmail','send','reply','outreach','mail'],
+    'Google Drive': ['drive','doc','document','slides','deck','presentation','save to drive'],
     Notion: ['notion','page','wiki','database'],
-    'Google Calendar': ['calendar','schedule','meeting','reminder'],
-    Attio: ['attio','crm','contact','prospect','customer'],
-    Instagram: ['instagram','ig','social post'],
+    'Google Calendar': ['calendar','schedule','meeting','reminder','event'],
+    Attio: ['attio','crm','contact','prospect','customer','update record'],
+    Instagram: ['instagram','ig','social post','reel'],
     Facebook: ['facebook','fb'],
-    LinkedIn: ['linkedin','li'],
-    'X (Twitter)': ['twitter','x thread','tweet'],
-    YouTube: ['youtube','yt'],
-    GitHub: ['github','pr','pull request','repo','code'],
+    LinkedIn: ['linkedin','li','linkedin post'],
+    'X (Twitter)': ['twitter','x thread','tweet','x post'],
+    YouTube: ['youtube','yt','video'],
+    GitHub: ['github','pr','pull request','repo','code','open issue'],
   },
 };
 
 function detectFromInput(text) {
   const lower = text.toLowerCase();
   const detected = { intents: [], sources: [], destinations: [] };
+  // Use word-boundary matching to prevent false positives (e.g., 'doc' matching 'langdock')
+  function matches(keyword) {
+    var escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp('\\b' + escaped + '\\b').test(lower);
+  }
   for (const key in builderKeywords.intents) {
-    if (builderKeywords.intents[key].some(function(kw) { return lower.indexOf(kw) !== -1; })) detected.intents.push(key);
+    if (builderKeywords.intents[key].some(function(kw) { return matches(kw); })) detected.intents.push(key);
   }
   for (const key in builderKeywords.sources) {
-    if (builderKeywords.sources[key].some(function(kw) { return lower.indexOf(kw) !== -1; })) detected.sources.push(key);
+    if (builderKeywords.sources[key].some(function(kw) { return matches(kw); })) detected.sources.push(key);
   }
   for (const key in builderKeywords.destinations) {
-    if (builderKeywords.destinations[key].some(function(kw) { return lower.indexOf(kw) !== -1; })) detected.destinations.push(key);
+    if (builderKeywords.destinations[key].some(function(kw) { return matches(kw); })) detected.destinations.push(key);
   }
   if (detected.sources.length === 0 && selectedSource) detected.sources.push(selectedSource);
   if (detected.destinations.length === 0 && selectedOutcome) {
@@ -1872,57 +1886,97 @@ function generateWorkflow() {
     return;
   }
 
-  // Use the user's actual text as the core of the workflow
   const userText = input || ('I want to ' + (selectedOutcome || 'summarize') + ' ' + (selectedSource || 'something'));
   const detected = detectFromInput(userText);
-  const intent = detected.intents[0] || selectedOutcome || 'summarize';
-  const source = detected.sources[0] || selectedSource || 'something';
-  const destinations = [...new Set(detected.destinations.filter(function(d) { return d !== source; }))];
+
+  const intent = detected.intents[0] || selectedOutcome || 'general';
+  const allSources = detected.sources.length > 0 ? detected.sources : (selectedSource ? [selectedSource] : []);
+  const destinations = [...new Set(detected.destinations)];
   const dest = destinations[0] || 'none';
 
-  const sourceApps = builderSources.find(function(s) { return s.id === source; }) ? builderSources.find(function(s) { return s.id === source; }).apps : [];
+  // Build apps list from detected sources and destination
+  var sourceApps = [];
+  allSources.forEach(function(s) {
+    var found = builderSources.find(function(bs) { return bs.id === s; });
+    if (found) sourceApps = sourceApps.concat(found.apps);
+  });
   const apps = [...new Set([...sourceApps, ...(dest !== 'none' ? [dest] : [])])];
 
   const tier = apps.length <= 1 ? 'Instant' : apps.length <= 3 ? 'Orchestrated' : 'Complex';
   const time = tier === 'Instant' ? '~5 to 15 min' : tier === 'Orchestrated' ? '~15 to 45 min' : '~30 min to 2 hours';
 
-  // Build steps that incorporate the user's actual request
+  // Detect schedule/cadence in the user text
+  const lowerText = userText.toLowerCase();
+  const scheduleKws = ['every day','everyday','daily','every morning','each morning','every week','weekly','every monday','every hour','hourly','real-time','real time','automatically','auto','recurring','on a schedule','cron'];
+  const hasSchedule = scheduleKws.some(function(kw) { return lowerText.indexOf(kw) !== -1; });
+
+  // Build "Fluso understood" summary for the UI
+  const intentLabels = {
+    summarize: 'Summarize', draft: 'Draft content', research: 'Research',
+    track: 'Monitor and track', organize: 'Organize and triage',
+    report: 'Pull and report', review: 'Review and audit', general: 'General task',
+  };
+  const sourceLabels = {
+    meeting: 'Meetings', email: 'Email', slack: 'Slack', document: 'Documents',
+    research: 'Web research', social: 'Social platforms', ads: 'Ad campaigns',
+    spreadsheet: 'Spreadsheets', code: 'GitHub', crm: 'CRM',
+  };
+  var detectedItems = [intentLabels[intent] || 'General task'];
+  if (allSources.length > 0) detectedItems.push(allSources.map(function(s) { return sourceLabels[s] || s; }).join(', '));
+  if (dest !== 'none') detectedItems.push('Output to ' + dest);
+  if (hasSchedule) detectedItems.push('Schedule detected');
+
+  // ===== BUILD STEPS =====
   const steps = [];
 
   // Step 1: The user's actual request, cleaned up
   var cleanText = userText.replace(/^\s*i want to\s+/i, '').replace(/^\s*i need to\s+/i, '').trim();
   if (cleanText.length < 10) cleanText = userText;
-  steps.push('Do this: ' + cleanText);
+  steps.push(cleanText.charAt(0).toUpperCase() + cleanText.slice(1));
 
-  // Step 2: Search scope based on what they mentioned
-  if (source === 'meeting') {
-    steps.push('Search for all meeting recordings and notes across the workspace — not just one calendar or one folder');
-  } else if (source === 'email') {
-    steps.push('Search ALL Gmail — every label, every folder, not just the inbox — filter by most recent first');
-  } else if (source === 'slack') {
-    steps.push('Search ALL Slack channels and DMs — not just one channel — filter by most recent first');
-  } else if (source === 'social') {
-    steps.push('Pull data from all connected social platforms — check every account, not just one');
-  } else if (source === 'ads') {
-    steps.push('Pull data from Google Ads — every campaign, every metric, not just the top performers');
-  } else if (source === 'code') {
-    steps.push('Fetch the full context from GitHub — the PR, the diff, linked issues, and related commits');
-  } else if (source === 'crm') {
-    steps.push('Pull the full record from Attio — contacts, deals, timeline, and all interactions');
-  } else if (source === 'research') {
-    steps.push('Research this using Exa across 5-10 sources — not just the first result. Get the full picture.');
+  // Step 2: Search scope based on detected sources
+  const sourceSearchLabels = {
+    meeting: 'all meeting recordings, transcripts, and notes across the workspace',
+    email: 'all Gmail — every label and folder, not just the inbox',
+    slack: 'all Slack channels and DMs, not just one channel',
+    document: 'all connected documents, pages, and notes in Drive and Notion',
+    research: 'the web using Exa across 5-10 sources — not just the first result',
+    social: 'all connected social platforms — Reddit, X, Quora, LinkedIn, YouTube, Instagram, Facebook',
+    ads: 'Google Ads — every campaign, every metric, not just the top performers',
+    spreadsheet: 'all spreadsheets and data files in Drive',
+    code: 'GitHub — repos, PRs, issues, and related commits',
+    crm: 'Attio — all contacts, deals, and interaction history',
+  };
+  if (allSources.length > 0) {
+    var scopes = allSources.map(function(s) { return sourceSearchLabels[s] || s; });
+    steps.push('Search ' + (scopes.length > 1 ? scopes.slice(0, -1).join(', ') + ' and ' + scopes[scopes.length - 1] : scopes[0]) + '. Filter by most recent first.');
   } else {
-    steps.push('Search the ENTIRE workspace — all channels, all threads, all folders — not just the obvious places');
+    steps.push('Search the ENTIRE workspace — all channels, all threads, all folders — not just the obvious places. Filter by most recent first.');
   }
 
-  // Step 3: Track confirmations and close loops
-  steps.push('For any commitment or task, check if it was confirmed as done (look for "done", "sent", "shipped", "closed"). If there is no confirmation, it is still open.');
+  // Step 3: Intent-specific deep work
+  const analysisSteps = {
+    summarize: 'Read the full context of each item — threads, replies, and history. Identify key points, decisions, and notable items. Structure the summary with clear sections.',
+    draft: 'Pull your previous work on this topic to match tone and style. Draft with a strong opening, clear body, and a CTA. Check for open loops — anything promised but not delivered.',
+    research: 'Synthesize findings across all sources. Identify supporting data, quotes, and evidence with sources. Note what is unknown and what needs more research.',
+    track: 'For each item found, assess relevance and significance. Filter out noise — focus on items that matter. For any commitment or task, check if it was confirmed as done (look for "done", "sent", "shipped", "closed"). If no confirmation exists, it is still open.',
+    organize: 'Categorize and group by theme, urgency, or topic. Identify what needs action vs what is informational. Flag anything that has been sitting for more than 3 days.',
+    report: 'Compare to the previous period and identify trends. Flag anomalies, spikes, and drops with specific causes. Structure as: what changed, what drove it, and what to do next.',
+    review: 'Check for issues, risks, and missing context. Verify completeness. Draft specific, actionable feedback — not generic praise.',
+    general: 'Read the full context of each item — not just the surface. Identify what matters and structure it clearly. Close all open loops.',
+  };
+  steps.push(analysisSteps[intent] || analysisSteps.general);
 
-  // Step 4: Destination-specific action
+  // Step 4: Schedule note (if detected)
+  if (hasSchedule) {
+    steps.push('Note: Fluso is reactive, not autonomous. It cannot run on a schedule by itself. You trigger this workflow by sending a message. To run it regularly, send the prompt each time, or ask Fluso to include it in your Morning Brief.');
+  }
+
+  // Step 5: Destination action
   if (dest !== 'none') {
-    const destStep = {
+    const destSteps = {
       Linear: 'Create Linear issues for each action item with owners and due dates',
-      Slack: 'Post a summary in the relevant Slack channel',
+      Slack: 'Post the result in the relevant Slack channel',
       Gmail: 'Save as a draft in Gmail for your review',
       'Google Drive': 'Save the result to your Google Drive',
       Notion: 'Save this to a Notion page with the right tags',
@@ -1935,15 +1989,36 @@ function generateWorkflow() {
       YouTube: 'Format for YouTube',
       GitHub: 'Open a pull request or create an issue on GitHub',
     };
-    if (destStep[dest]) steps.push(destStep[dest]);
+    if (destSteps[dest]) steps.push(destSteps[dest]);
   }
 
-  // Step 5: Show before acting
+  // Step 6: Control
   steps.push('Show me the result before anything goes out. I approve all sends, posts, and creates.');
 
-  // Build the prompt using the user's actual text
+  // ===== BUILD PROMPT =====
+  const sourcePromptLabels = {
+    meeting: 'all meeting recordings, transcripts, and notes',
+    email: 'all Gmail — every label and folder',
+    slack: 'all Slack channels and DMs',
+    document: 'all connected documents, pages, and notes',
+    research: 'the web using Exa across multiple sources',
+    social: 'all connected social platforms (Reddit, X, Quora, LinkedIn, YouTube, Instagram, Facebook)',
+    ads: 'Google Ads — every campaign and metric',
+    spreadsheet: 'all spreadsheets and data files',
+    code: 'GitHub — repos, PRs, issues, commits',
+    crm: 'Attio — all contacts, deals, and interactions',
+  };
   let prompt = userText + '\n\n';
-  prompt += 'Search the ENTIRE workspace — all channels, all threads, all folders — not just the obvious places. Filter by most recent first. For any commitment or task, check if it was confirmed as done before marking it complete. If there is no confirmation, it is still open.\n\n';
+  if (allSources.length > 0) {
+    var searchScopes = allSources.map(function(s) { return sourcePromptLabels[s] || s; });
+    prompt += 'Search ' + (searchScopes.length > 1 ? searchScopes.slice(0, -1).join(', ') + ' and ' + searchScopes[searchScopes.length - 1] : searchScopes[0]) + '. Filter by most recent first.\n\n';
+  } else {
+    prompt += 'Search the ENTIRE workspace — all channels, all threads, all folders — not just the obvious places. Filter by most recent first.\n\n';
+  }
+  prompt += 'For any commitment or task, check if it was confirmed as done (look for "done", "sent", "shipped", "closed"). If there is no confirmation, it is still open.\n\n';
+  if (hasSchedule) {
+    prompt += 'Note: Fluso is reactive and cannot run on a schedule by itself. You trigger this by sending a message. To run this regularly, send the prompt each time or ask Fluso to include it in your Morning Brief.\n\n';
+  }
   if (dest !== 'none') {
     const destPhrase = {
       Linear: 'Create Linear issues for action items with owners and due dates.',
@@ -1966,28 +2041,38 @@ function generateWorkflow() {
   prompt += getSectorContext();
   prompt += getMcpContext();
 
-  const matches = workflows.filter(function(w) {
+  // ===== FIND SIMILAR WORKFLOWS (improved scoring) =====
+  const matches = workflows.map(function(w) {
     const wText = (w.title + ' ' + w.outcome + ' ' + w.start + ' ' + w.prompt).toLowerCase();
-    const matchScore = detected.intents.filter(function(i) { return wText.indexOf(i) !== -1; }).length +
-                      detected.sources.filter(function(s) { return wText.indexOf(s) !== -1; }).length;
-    return matchScore >= 2;
-  }).slice(0, 3);
+    var score = 0;
+    detected.intents.forEach(function(i) { if (wText.indexOf(i) !== -1) score += 2; });
+    allSources.forEach(function(s) { if (wText.indexOf(s) !== -1) score += 2; });
+    if (dest !== 'none' && wText.indexOf(dest.toLowerCase()) !== -1) score += 1;
+    return { w: w, score: score };
+  }).filter(function(m) { return m.score >= 2; }).sort(function(a, b) { return b.score - a.score; }).slice(0, 3).map(function(m) { return m.w; });
 
+  // ===== SUGGEST SKILLS (expanded) =====
   const suggestedSkills = [];
   const intentSkillMap = {
     summarize: ['meeting-intelligence'],
     draft: ['copywriting'],
-    research: ['deep-research'],
-    track: [],
+    research: ['deep-research', 'competitor-profiling'],
+    track: ['day-snapshot'],
     organize: [],
     report: ['analytics'],
     review: ['ai-slop-detector'],
+    general: ['deep-research'],
   };
   if (intentSkillMap[intent]) suggestedSkills.push.apply(suggestedSkills, intentSkillMap[intent]);
-  if (source === 'social' || dest === 'Instagram' || dest === 'LinkedIn' || dest === 'X (Twitter)') suggestedSkills.push('social');
-  if (source === 'ads') suggestedSkills.push('ads');
-  if (intent === 'research' && dest === 'Notion') suggestedSkills.push('competitor-profiling');
-  const uniqueSkills = [...new Set(suggestedSkills)];
+  if (allSources.indexOf('social') !== -1 || ['Instagram','LinkedIn','X (Twitter)','Facebook','YouTube'].indexOf(dest) !== -1) suggestedSkills.push('social');
+  if (allSources.indexOf('ads') !== -1) { suggestedSkills.push('ads'); suggestedSkills.push('ad-creative'); }
+  if (allSources.indexOf('code') !== -1) suggestedSkills.push('ai-slop-detector');
+  if (allSources.indexOf('crm') !== -1) { suggestedSkills.push('sales-enablement'); suggestedSkills.push('prospecting'); }
+  if (intent === 'draft' && dest === 'Gmail') suggestedSkills.push('cold-email');
+  if (intent === 'draft' && ['LinkedIn','X (Twitter)'].indexOf(dest) !== -1) suggestedSkills.push('social');
+  if (intent === 'research') suggestedSkills.push('competitor-profiling');
+  if (intent === 'report') suggestedSkills.push('analytics');
+  const uniqueSkills = [...new Set(suggestedSkills)].filter(function(s) { return skillsCatalog[s]; });
 
   const hasSendAction = ['Gmail','Slack','Instagram','Facebook','LinkedIn','X (Twitter)'].indexOf(dest) !== -1;
   const controlNote = hasSendAction
@@ -1998,6 +2083,17 @@ function generateWorkflow() {
   const output = document.getElementById('builderOutput');
   output.classList.add('builder__output--visible');
 
+  // Collapse the input area (hide chips, keep textarea)
+  var inputArea = document.querySelector('.builder__input-area');
+  if (inputArea) inputArea.classList.add('builder__input-area--collapsed');
+
+  // Build detected summary HTML
+  var detectedHtml = '<div class="builder__detected"><span class="builder__detected-label">Fluso understood</span>' +
+    detectedItems.map(function(d, i) {
+      var isSchedule = hasSchedule && i === detectedItems.length - 1;
+      return '<span class="builder__detected-item' + (isSchedule ? ' builder__detected-item--schedule' : '') + '">' + d + '</span>';
+    }).join('') + '</div>';
+
   const sectorDisplayHtml = '';
 
   const mcpDisplayHtml = activeFilters.mcps.size > 0 ?
@@ -2007,9 +2103,11 @@ function generateWorkflow() {
 
   output.innerHTML =
     '<div class="builder__output-head"><div><div class="builder__output-title">Your workflow is ready</div>' +
-    '<div style="font-size:15px;color:var(--text-muted);margin-top:6px">Based on what you described, here is a workflow Fluso can run. Edit any part.</div></div>' +
+    '<div style="font-size:15px;color:var(--text-muted);margin-top:6px">Based on what you described, here is a workflow Fluso can run. Edit the prompt or the steps. Copy when ready.</div></div>' +
     '<div class="builder__output-meta"><span class="card__tier ' + tierClass(tier) + '"><span class="dot"></span>' + tier + '</span>' +
     '<span class="mono" style="color:var(--text-faint)">' + time + '</span></div></div>' +
+
+    detectedHtml +
 
     (matches.length > 0 ?
       '<div class="builder__match"><div class="builder__match-label">Similar workflows in the library</div><div class="builder__match-items">' +
@@ -2028,7 +2126,7 @@ function generateWorkflow() {
     '<a href="https://fluso.ai" target="_blank" class="btn btn--inv-ghost btn--sm">Open Fluso</a></div></div>' +
 
     '<div class="builder__connectors"><div class="builder__connectors-label">Connectors needed</div>' +
-    '<div class="builder__connectors-list">' + apps.map(function(a) { return '<span class="modal__app">' + a + '</span>'; }).join('') + '</div></div>' +
+    '<div class="builder__connectors-list">' + (apps.length > 0 ? apps.map(function(a) { return '<span class="modal__app">' + a + '</span>'; }).join('') : '<span style="font-size:14px;color:var(--text-faint)">Fluso will determine which connectors to use based on the task.</span>') + '</div></div>' +
 
     sectorDisplayHtml + mcpDisplayHtml +
 
@@ -2038,7 +2136,7 @@ function generateWorkflow() {
       '<div class="builder__connectors-list">' + uniqueSkills.map(function(s) { return '<span class="modal__app" style="border-color:var(--green);color:var(--green)" title="' + (skillsCatalog[s]||'') + '">' + s + '</span>'; }).join('') + '</div></div>'
     : '') +
 
-    '<div class="builder__connectors"><div class="builder__connectors-label">Add another custom MCP server</div>' +
+    '<div class="builder__connectors"><div class="builder__connectors-label">Add a custom MCP server</div>' +
     '<p style="font-size:14px;color:var(--text-faint);margin-bottom:10px">Type the name of your MCP server. If it is a known one (Linear, Notion, Sentry, etc.), we will tell you what it does. If it is custom, tell us what it does so the prompt is accurate.</p>' +
     '<input type="text" id="customMcpInput" placeholder="MCP server name (e.g., Linear MCP, Internal analytics MCP)" style="width:100%;border:1px solid var(--border);border-radius:12px;padding:10px 16px;font-family:inherit;font-size:15px;outline:none;margin-bottom:8px" onfocus="this.style.borderColor=\'var(--ink)\'" onblur="this.style.borderColor=\'var(--border)\'" onkeydown="if(event.key===\'Enter\'){addMcpToPrompt()}" />' +
     '<button class="btn btn--secondary btn--xs" onclick="addMcpToPrompt()">Research &amp; add to prompt</button>' +
@@ -2049,9 +2147,17 @@ function generateWorkflow() {
     '<div style="display:flex;gap:12px;flex-wrap:wrap">' +
     '<button class="btn btn--green btn--sm" onclick="copyBuilderPrompt()">Copy prompt</button>' +
     '<a href="https://fluso.ai" target="_blank" class="btn btn--primary btn--sm">Open Fluso</a>' +
+    '<button class="btn btn--secondary btn--sm" onclick="regenerateBuilder()">Regenerate</button>' +
     '<button class="btn btn--secondary btn--sm" onclick="resetBuilder()">Start over</button></div>';
 
   output.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function regenerateBuilder() {
+  var output = document.getElementById('builderOutput');
+  if (output.classList.contains('builder__output--visible')) {
+    generateWorkflow();
+  }
 }
 
 function copyBuilderPrompt() {
@@ -2103,9 +2209,14 @@ function confirmBuilderMcp(name) {
 function resetBuilder() {
   document.getElementById('builderInput').value = '';
   document.getElementById('builderOutput').classList.remove('builder__output--visible');
+  document.getElementById('builderOutput').innerHTML = '';
   document.querySelectorAll('.builder__chip').forEach(function(c) { c.classList.remove('builder__chip--selected'); });
+  var inputArea = document.querySelector('.builder__input-area');
+  if (inputArea) inputArea.classList.remove('builder__input-area--collapsed');
   selectedSource = null;
   selectedOutcome = null;
+  document.getElementById('builderInput').focus();
+  document.getElementById('builder').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ===== BUILDER CHIPS =====
